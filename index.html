@@ -20,7 +20,9 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; }
-        header { background: linear-gradient(135deg, #1b5e20, #2e7d32); color: white; padding: 20px 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        header { background: linear-gradient(135deg, #1b5e20, #2e7d32); color: white; padding: 25px 15px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); position: relative; overflow: hidden; }
+        header::before { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10%); background-size: 20px 20px; opacity: 0.6; pointer-events: none; }
+        .bihar-watermark-bg { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); width: 120px; height: 90px; opacity: 0.18; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 400"><path fill="%23ffffff" d="M150,50 Q250,30 350,80 Q450,150 400,250 Q350,350 250,380 Q150,350 80,280 Q20,200 80,120 Z"/></svg>') no-repeat center center; background-size: contain; pointer-events: none; }
         .logo-container { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 8px; }
         .logo-icon { background: white; color: var(--primary); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         header h1 { font-size: 1.6rem; font-weight: 700; }
@@ -53,133 +55,7 @@
         .wizard-box { background: #e8f5e9; border: 2px dashed var(--primary); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
     </style>
     <!-- Firebase App & Firestore CDN -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js">
-        // --- Teacher Profile & Permissions Logic ---
-        function checkTeacherProfile(user) {
-            if (user.isAdmin) return; // Admins don't need profile modal
-            let profiles = JSON.parse(localStorage.getItem('teacher_profiles') || '{}');
-            let prof = profiles[user.phone];
-            if (!prof || !prof.name || !prof.school) {
-                // Show profile setup modal
-                document.getElementById('profile-setup-modal').classList.remove('hidden');
-            } else {
-                currentUser.name = prof.name + " (" + prof.school + ", " + prof.block + ")";
-                document.getElementById('welcome-msg').innerText = `स्वागत है, ${currentUser.name}`;
-            }
-        }
-
-        function saveTeacherProfile() {
-            const name = document.getElementById('prof-name').value.trim();
-            const school = document.getElementById('prof-school').value.trim();
-            const block = document.getElementById('prof-block').value.trim();
-            const district = document.getElementById('prof-district').value.trim();
-
-            if(!name || !school || !block) {
-                return alert("कृपया नाम, विद्यालय और प्रखंड का नाम अनिवार्य रूप से भरें!");
-            }
-
-            let profiles = JSON.parse(localStorage.getItem('teacher_profiles') || '{}');
-            profiles[currentUser.phone] = { name, school, block, district, phone: currentUser.phone, registeredAt: new Date().toLocaleString() };
-            localStorage.setItem('teacher_profiles', JSON.stringify(profiles));
-
-            // Also sync to cloud if available
-            syncSaveToCloud('profile_' + currentUser.phone, profiles[currentUser.phone]);
-
-            document.getElementById('profile-setup-modal').classList.add('hidden');
-            currentUser.name = name + " (" + school + ", " + block + ")";
-            document.getElementById('welcome-msg').innerText = `स्वागत है, ${currentUser.name}`;
-            alert("✅ प्रोफाइल सफलतापूर्वक सुरक्षित हो गई है!");
-            initDashboard();
-        }
-
-        function populatePermissionDropdown() {
-            let users = JSON.parse(localStorage.getItem('registered_teachers') || '{}');
-            let profiles = JSON.parse(localStorage.getItem('teacher_profiles') || '{}');
-            let select = document.getElementById('perm-teacher-select');
-            if(!select) return;
-            let html = '<option value="">-- शिक्षक चुनें --</option>';
-            for(let phone in users) {
-                let prof = profiles[phone];
-                let displayName = prof ? `${prof.name} (${phone} - ${prof.school})` : `शिक्षक (${phone})`;
-                html += `<option value="${phone}">${displayName}</option>`;
-            }
-            select.innerHTML = html;
-        }
-
-        function loadTeacherPermissions() {
-            const phone = document.getElementById('perm-teacher-select').value;
-            if(!phone) {
-                document.getElementById('perm-checkboxes').classList.add('hidden');
-                return;
-            }
-            document.getElementById('perm-checkboxes').classList.remove('hidden');
-            let perms = JSON.parse(localStorage.getItem('perms_' + phone) || '{"path-tika":true,"monthly-plan":true,"exam-papers":true,"daily-study":true,"gps-camera":true,"notepad":true}');
-            
-            document.getElementById('perm-path-tika').checked = perms['path-tika'] !== false;
-            document.getElementById('perm-monthly-plan').checked = perms['monthly-plan'] !== false;
-            document.getElementById('perm-exam-papers').checked = perms['exam-papers'] !== false;
-            document.getElementById('perm-daily-study').checked = perms['daily-study'] !== false;
-            document.getElementById('perm-gps-camera').checked = perms['gps-camera'] !== false;
-            document.getElementById('perm-notepad').checked = perms['notepad'] !== false;
-        }
-
-        function saveTeacherPermissions() {
-            const phone = document.getElementById('perm-teacher-select').value;
-            if(!phone) return;
-            let perms = {
-                'path-tika': document.getElementById('perm-path-tika').checked,
-                'monthly-plan': document.getElementById('perm-monthly-plan').checked,
-                'exam-papers': document.getElementById('perm-exam-papers').checked,
-                'daily-study': document.getElementById('perm-daily-study').checked,
-                'gps-camera': document.getElementById('perm-gps-camera').checked,
-                'notepad': document.getElementById('perm-notepad').checked
-            };
-            localStorage.setItem('perms_' + phone, JSON.stringify(perms));
-            syncSaveToCloud('perms_' + phone, perms);
-            alert("✅ शिक्षक के अधिकार सफलतापूर्वक अपडेट कर दिए गए हैं!");
-        }
-
-        function checkUserTabPermission(tabId) {
-            if (currentUser && currentUser.isAdmin) return true;
-            let perms = JSON.parse(localStorage.getItem('perms_' + currentUser.phone) || 'null');
-            if (!perms) return true;
-            if (perms[tabId] === false) {
-                alert("⚠️ यह सुविधा एडमिन द्वारा आपके लिए प्रतिबंधित (Block) कर दी गई है।");
-                return false;
-            }
-            return true;
-        }
-
-
-        function exportTeacherDataCsv() {
-            let users = JSON.parse(localStorage.getItem('registered_teachers') || '{}');
-            let profiles = JSON.parse(localStorage.getItem('teacher_profiles') || '{}');
-            
-            if(Object.keys(users).length === 0 && Object.keys(profiles).length === 0) {
-                return alert("कोई शिक्षक डेटा उपलब्ध नहीं है!");
-            }
-
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Mobile Number,Name,School,Block,District,Status,Total Active Time (Mins),Last Active\n";
-
-            for(let phone in users) {
-                let u = users[phone];
-                let p = profiles[phone] || { name: u.name, school: "N/A", block: "N/A", district: "सीतामढ़ी" };
-                let mins = Math.floor(u.totalTime / 60);
-                let row = `"${phone}","${p.name}","${p.school}","${p.block}","${p.district}","${u.status}","${mins}","${u.lastActive}"`;
-                csvContent += row + "\n";
-            }
-
-            let encodedUri = encodeURI(csvContent);
-            let link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "Shikshak_Sathi_Teachers_Directory_2026.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-</script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
     <script>
         const firebaseConfig = {
@@ -262,35 +138,32 @@
                 <button type="submit" id="login-btn">🚀 ऐप में प्रवेश करें</button>
             </form>
             <p style="margin-top: 12px; font-size: 0.85rem; color: #555; text-align: center;">
-                सुपर एडमिन आईडी: <strong>8507954133</strong> (पिन: 850795)<br>
                 सामान्य शिक्षक डिफ़ॉल्ट पासवर्ड: <strong>123456</strong>
             </p>
             <p id="login-msg" style="margin-top: 10px; color: var(--danger); font-size: 0.9rem; text-align: center; font-weight: 600;"></p>
         </div>
 
-        
-    <!-- पहली बार लॉगिन पर प्रोफाइल सेटअप मोडल -->
-    <div id="profile-setup-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:15px;">
-        <div class="card" style="max-width:450px; width:100%; background:white; margin:0; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-            <h2 style="color:var(--primary); margin-bottom:10px;">👤 शिक्षक प्रोफाइल सेटअप</h2>
-            <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">पोर्टल का उपयोग करने से पहले कृपया अपनी सही विवरण दर्ज करें (यह केवल पहली बार करना होगा)।</p>
-            
-            <label>पूरा नाम (Full Name):</label>
-            <input type="text" id="prof-name" placeholder="अपना पूरा नाम दर्ज करें..." required>
-            
-            <label>विद्यालय का नाम (School Name):</label>
-            <input type="text" id="prof-school" placeholder="विद्यालय का नाम..." required>
-            
-            <label>प्रखंड (Block Name):</label>
-            <input type="text" id="prof-block" placeholder="प्रखंड का नाम..." required>
-            
-            <label>जिला (District Name):</label>
-            <input type="text" id="prof-district" value="सीतामढ़ी" placeholder="जिला का नाम..." required>
+        <!-- पहली बार लॉगिन पर प्रोफाइल सेटअप मोडल -->
+        <div id="profile-setup-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:15px;">
+            <div class="card" style="max-width:450px; width:100%; background:white; margin:0; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                <h2 style="color:var(--primary); margin-bottom:10px;">👤 शिक्षक प्रोफाइल सेटअप</h2>
+                <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">पोर्टल का उपयोग करने से पहले कृपया अपनी सही विवरण दर्ज करें (यह केवल पहली बार करना होगा)।</p>
+                
+                <label>पूरा नाम (Full Name):</label>
+                <input type="text" id="prof-name" placeholder="अपना पूरा नाम दर्ज करें..." required>
+                
+                <label>विद्यालय का नाम (School Name):</label>
+                <input type="text" id="prof-school" placeholder="विद्यालय का नाम..." required>
+                
+                <label>प्रखंड (Block Name):</label>
+                <input type="text" id="prof-block" placeholder="प्रखंड का नाम..." required>
+                
+                <label>जिला (District Name):</label>
+                <input type="text" id="prof-district" value="सीतामढ़ी" placeholder="जिला का नाम..." required>
 
-            <button onclick="saveTeacherProfile()" style="margin-top:10px;">💾 विवरण सुरक्षित करें एवं आगे बढ़ें</button>
+                <button onclick="saveTeacherProfile()" style="margin-top:10px;">💾 विवरण सुरक्षित करें एवं आगे बढ़ें</button>
+            </div>
         </div>
-    </div>
-
 
         <!-- डैशबोर्ड -->
         <div id="dashboard-card" class="hidden">
@@ -409,26 +282,32 @@
             <!-- टैब 6: GPS कैमरा -->
             <div id="tab-gps-camera" class="tab-content card hidden">
                 <h2>📍 जीपीएस कैमरा एवं फोटो स्टैम्प (GPS Camera)</h2>
-                <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">विद्यालय की गतिविधियों के लिए जीपीएस स्टैम्प वाला फोटो लें।</p>
-                <div class="wizard-box" style="text-align: center;">
-                    <h3 style="color: var(--primary); margin-bottom: 15px;">📸 लाइव जीपीएस कैमरा</h3>
-                    <div id="camera-preview-container" style="margin-bottom: 15px;">
-                        <video id="camera-video" autoplay playsinline style="width: 100%; max-width: 450px; border-radius: 8px; background: #000; display: none;"></video>
+                <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">विद्यालय की गतिविधियों के लिए सटीक जीपीएस कोऑर्डिनेट्स और स्टैम्प वाला फोटो लें।</p>
+                
+                <div class="wizard-box" style="text-align: center; background: #fff; border: 2px solid var(--primary);">
+                    <h3 style="color: var(--primary); margin-bottom: 10px;">📸 लाइव जीपीएस कैमरा व्यू</h3>
+                    
+                    <div style="background: #e8f5e9; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem; color: var(--primary); font-weight: bold; display: inline-block;">
+                        📍 Lat: <span id="live-lbl-lat">सर्च हो रहा है...</span> | Lng: <span id="live-lbl-lng">सर्च हो रहा है...</span>
+                    </div>
+
+                    <div id="camera-preview-container" style="position: relative; width: 100%; max-width: 500px; margin: 0 auto 15px auto; background: #000; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+                        <video id="camera-video" autoplay playsinline style="width: 100%; height: auto; max-height: 400px; object-fit: cover; display: block; margin: 0 auto;"></video>
                         <canvas id="camera-canvas" style="display: none;"></canvas>
-                        <img id="captured-photo" style="width: 100%; max-width: 450px; border-radius: 8px; display: none; margin: 0 auto;" alt="GPS Photo">
+                        <img id="captured-photo" style="width: 100%; height: auto; max-height: 400px; object-fit: contain; display: none; margin: 0 auto;" alt="GPS Photo">
                     </div>
-                    <div id="gps-info-box" style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #c8e6c9; font-size: 0.9rem; text-align: left;">
-                        <p style="margin-bottom: 8px;"><strong>🌐 अक्षांश (Latitude):</strong> <span id="lbl-lat">प्राप्त हो रहा है...</span></p>
-                        <p style="margin-bottom: 8px;"><strong>🌐 देशांतर (Longitude):</strong> <span id="lbl-lng">प्राप्त हो रहा है...</span></p>
-                        <label style="font-weight: bold; color: var(--primary); display: block; margin-top: 10px;">🏫 स्थान / विद्यालय का नाम (यहाँ टाइप करें):</label>
-                        <input type="text" id="gps-custom-location" placeholder="अपने स्कूल का नाम लिखें (खाली छोड़ने पर ब्लैंक रहेगा)..." style="margin: 5px 0 10px 0;">
-                        <p><strong>📅 दिनांक एवं समय:</strong> <span id="lbl-datetime"></span></p>
+
+                    <div style="background: #f9f9f9; padding: 12px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #ddd; text-align: left;">
+                        <label style="font-weight: bold; color: var(--primary); display: block; font-size: 0.9rem;">🏫 विद्यालय / स्थान का नाम:</label>
+                        <input type="text" id="gps-custom-location" placeholder="प्राथमिक विद्यालय..." style="margin: 5px 0 8px 0; padding: 8px;">
+                        <p style="font-size: 0.85rem; color: #555;"><strong>📅 समय:</strong> <span id="lbl-datetime"></span></p>
                     </div>
+
                     <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                        <button onclick="startGpsCamera()" class="btn-info" style="width: auto;">📷 कैमरा चालू करें</button>
-                        <button onclick="captureGpsPhoto()" id="btn-capture" class="hidden" style="width: auto; background: var(--warning);">📸 फोटो खींचें</button>
-                        <button onclick="retakePhoto()" id="btn-retake" class="hidden btn-secondary" style="width: auto;">🔄 दोबारा खींचें</button>
-                        <a id="download-gps-link" class="hidden btn-export" style="background: var(--primary); text-decoration: none; padding: 12px 20px; border-radius: 6px; color: white; font-weight: bold; display: inline-block; margin-top: 5px;">📥 जीपीएस फोटो डाउनलोड करें</a>
+                        <button onclick="startGpsCamera()" class="btn-info" style="width: auto; padding: 10px 20px;">📷 कैमरा चालू करें</button>
+                        <button onclick="captureGpsPhoto()" id="btn-capture" class="hidden" style="width: auto; background: var(--warning); padding: 10px 25px; font-size: 1.1rem;">📸 फोटो खींचें (Capture)</button>
+                        <button onclick="retakePhoto()" id="btn-retake" class="hidden btn-secondary" style="width: auto; padding: 10px 20px;">🔄 दोबारा खींचें</button>
+                        <a id="download-gps-link" class="hidden btn-export" style="background: var(--primary); text-decoration: none; padding: 10px 20px; border-radius: 6px; color: white; font-weight: bold; display: inline-block;">📥 जीपीएस फोटो डाउनलोड करें</a>
                     </div>
                 </div>
             </div>
@@ -482,10 +361,35 @@
 
                 <div style="margin-bottom: 25px; background: #e8f5e9; padding: 18px; border-radius: 8px;">
                     <h3>👥 शिक्षक गतिविधि ट्रैकर</h3>
+                    <button onclick="exportTeacherDataCsv()" class="btn-export" style="margin: 10px 0; background: var(--info);">📥 सभी शिक्षकों का डेटा CSV (Excel) डाउनलोड करें</button>
                     <table>
                         <thead><tr><th>शिक्षक का नाम</th><th>मोबाइल नंबर</th><th>सक्रिय समय</th><th>स्थिति</th><th>एक्शन</th></tr></thead>
                         <tbody id="admin-teacher-table"></tbody>
                     </table>
+                </div>
+
+                <!-- शिक्षक अधिकार एवं फीचर नियंत्रण (Teacher Permission Matrix) -->
+                <div style="margin-bottom: 25px; background: #ede7f6; padding: 18px; border-radius: 8px; border: 2px solid #b39ddb;">
+                    <h3>🛡️ शिक्षक सुविधा एवं टैब नियंत्रण (Feature Access Control)</h3>
+                    <p style="font-size: 0.85rem; color: #555; margin-bottom: 12px;">आप किस शिक्षक के लिए कौन सी सुविधा चालू या बंद रखना चाहते हैं, यहाँ नियंत्रित करें:</p>
+                    
+                    <div style="margin-bottom: 12px;">
+                        <label>शिक्षक का मोबाइल नंबर चुनें:</label>
+                        <select id="perm-teacher-select" onchange="loadTeacherPermissions()">
+                            <option value="">-- शिक्षक चुनें --</option>
+                        </select>
+                    </div>
+
+                    <div id="perm-checkboxes" class="hidden" style="background:white; padding:15px; border-radius:6px; margin-bottom:10px;">
+                        <p style="font-weight:bold; color:var(--primary); margin-bottom:8px;">सुविधाएँ चालू/बंद करें:</p>
+                        <label style="display:block; margin:5px 0;"><input type="checkbox" id="perm-path-tika" checked> 📖 पाठ-टीका रजिस्टर</label>
+                        <label style="display:block; margin:5px 0;"><input type="checkbox" id="perm-monthly-plan" checked> 📅 मासिक योजना</label>
+                        <label style="display:block; margin:5px 0;"><input type="checkbox" id="perm-exam-papers" checked> 📝 परीक्षा प्रश्न</label>
+                        <label style="display:block; margin:5px 0;"><input type="checkbox" id="perm-daily-study" checked> 📚 दैनिक पाठ्य सामग्री</label>
+                        <label style="display:block; margin:5px 0;"><input type="checkbox" id="perm-gps-camera" checked> 📍 GPS कैमरा</label>
+                        <label style="display:block; margin:5px 0;"><input type="checkbox" id="perm-notepad" checked> 📓 मेरी डायरी</label>
+                        <button onclick="saveTeacherPermissions()" style="width:auto; padding:8px 15px; margin-top:10px;">परमिशन सेव करें</button>
+                    </div>
                 </div>
 
                 <!-- मासिक पाठ योजना -->
@@ -637,9 +541,8 @@
             if (userid === SUPER_ADMIN_PHONE) {
                 let currentPin = localStorage.getItem('custom_super_admin_pin') || SUPER_ADMIN_PIN;
                 if (pass === currentPin || pass === SUPER_ADMIN_PIN) {
-                    currentUser = { name: "सुशील कुमार (सुपर एडमिन)", phone: userid, isAdmin: true, isSuperAdmin: true };
-                    registerUserActivity(currentUser);
-                    initDashboard();
+                    let adminUser = { name: "सुशील कुमार (सुपर एडमिन)", phone: userid, isAdmin: true, isSuperAdmin: true };
+                    requestAdminEmailVerification(adminUser);
                     return;
                 } else {
                     if (msgEl) msgEl.innerText = "अमान्य सुपर एडमिन पिन कोड! (डिफ़ॉल्ट पिन 850795 है)";
@@ -651,9 +554,8 @@
             let foundCoAdmin = coAdmins.find(c => c.phone === userid);
             if (foundCoAdmin) {
                 if (pass === foundCoAdmin.pass) {
-                    currentUser = { name: foundCoAdmin.name + " (सह-एडमिन)", phone: userid, isAdmin: true, isSuperAdmin: false };
-                    registerUserActivity(currentUser);
-                    initDashboard();
+                    let coAdminUser = { name: foundCoAdmin.name + " (सह-एडमिन)", phone: userid, isAdmin: true, isSuperAdmin: false };
+                    requestAdminEmailVerification(coAdminUser);
                     return;
                 } else {
                     if (msgEl) msgEl.innerText = "अमान्य सह-एडमिन पासवर्ड!";
@@ -722,11 +624,17 @@
         }
 
         function switchTab(tabId) {
+            if (!checkUserTabPermission(tabId)) {
+                return;
+            }
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-' + tabId).classList.remove('hidden');
             event.currentTarget.classList.add('active');
-            if(currentUser && currentUser.isAdmin) { loadAdminData(); }
+            if(currentUser && currentUser.isAdmin) { 
+                loadAdminData(); 
+                populatePermissionDropdown();
+            }
         }
 
         function makeCoAdmin() {
@@ -1242,25 +1150,75 @@
 
         function logout() { if(sessionTimer) clearInterval(sessionTimer); location.reload(); }
 
+        // --- Email Based Two-Factor Authentication (2FA) & Admin Hierarchy ---
+        let pendingAdminUser = null;
+        let emailOtpCode = "";
+
+        function requestAdminEmailVerification(userObj) {
+            pendingAdminUser = userObj;
+            let adminEmails = JSON.parse(localStorage.getItem('admin_emails_db') || '{}');
+            let registeredEmail = adminEmails[userObj.phone] || (userObj.isSuperAdmin ? "sushilkumar.teacher@gmail.com" : "coadmin@gmail.com");
+            
+            emailOtpCode = Math.floor(100000 + Math.random() * 900000).toString();
+            
+            alert(`🔐 [सुरक्षा 2FA] आपके पंजीकृत ईमेल (${registeredEmail}) पर 6-अंकों का लॉगिन OTP भेजा गया है: ${emailOtpCode}`);
+            
+            let modalHtml = `
+                <div id="email-2fa-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:99999; display:flex; align-items:center; justify-content:center; padding:15px;">
+                    <div class="card" style="max-width:400px; width:100%; background:white; margin:0; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <h2 style="color:var(--primary); margin-bottom:10px;">📧 ईमेल 2FA सत्यापन (Email OTP)</h2>
+                        <p style="font-size:0.9rem; color:#555; margin-bottom:12px;">सुरक्षा कारणों से आपकी ईमेल (${registeredEmail}) पर भेजा गया 6-अंकों का OTP यहाँ दर्ज करें:</p>
+                        
+                        <label>6-अंकों का OTP:</label>
+                        <input type="text" id="modal-email-otp" placeholder="OTP दर्ज करें..." maxlength="6" style="text-align:center; font-size:1.2rem; letter-spacing:3px;">
+                        
+                        <button onclick="verifyEmailOtpAndEnter()" style="margin-top:10px;">🔓 सत्यापित करें एवं प्रवेश करें</button>
+                        <button onclick="document.getElementById('email-2fa-modal').remove()" class="btn-secondary" style="margin-top:5px;">रद्द करें</button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function verifyEmailOtpAndEnter() {
+            const entered = document.getElementById('modal-email-otp').value.trim();
+            if(entered !== emailOtpCode) {
+                return alert("अमान्य OTP! कृपया सही कोड दर्ज करें।");
+            }
+            document.getElementById('email-2fa-modal').remove();
+            currentUser = pendingAdminUser;
+            registerUserActivity(currentUser);
+            initDashboard();
+        }
+
         // --- GPS Camera Logic ---
         let videoStream = null;
+        let currentLat = "26.5951° N";
+        let currentLng = "85.4851° E";
 
         function startGpsCamera() {
             const video = document.getElementById('camera-video');
             const captureBtn = document.getElementById('btn-capture');
+            
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(position => {
-                    document.getElementById('lbl-lat').innerText = position.coords.latitude.toFixed(6);
-                    document.getElementById('lbl-lng').innerText = position.coords.longitude.toFixed(6);
+                    currentLat = position.coords.latitude.toFixed(6) + "° N";
+                    currentLng = position.coords.longitude.toFixed(6) + "° E";
+                    document.getElementById('live-lbl-lat').innerText = currentLat;
+                    document.getElementById('live-lbl-lng').innerText = currentLng;
                 }, err => {
-                    document.getElementById('lbl-lat').innerText = "26.5951° N";
-                    document.getElementById('lbl-lng').innerText = "85.4851° E";
-                });
+                    currentLat = "26.5951° N";
+                    currentLng = "85.4851° E";
+                    document.getElementById('live-lbl-lat').innerText = currentLat;
+                    document.getElementById('live-lbl-lng').innerText = currentLng;
+                }, { enableHighAccuracy: true });
             } else {
-                document.getElementById('lbl-lat').innerText = "उपलब्ध नहीं";
-                document.getElementById('lbl-lng').innerText = "उपलब्ध नहीं";
+                document.getElementById('live-lbl-lat').innerText = currentLat;
+                document.getElementById('live-lbl-lng').innerText = currentLng;
             }
+
             document.getElementById('lbl-datetime').innerText = new Date().toLocaleString();
+            
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
                 .then(stream => {
                     videoStream = stream;
@@ -1271,36 +1229,35 @@
                     document.getElementById('download-gps-link').classList.add('hidden');
                     document.getElementById('btn-retake').classList.add('hidden');
                 })
-                .catch(err => { alert("कैमरा अनुमति नहीं मिल पाई!"); });
+                .catch(err => { alert("कैमरा अनुमति नहीं मिल पाई! कृपया ब्राउज़र या मोबाइल सेटिंग में कैमरा की अनुमति दें।"); });
         }
 
         function captureGpsPhoto() {
             const video = document.getElementById('camera-video');
             const canvas = document.getElementById('camera-canvas');
             const photo = document.getElementById('captured-photo');
+            
             canvas.width = video.videoWidth || 1280;
             canvas.height = video.videoHeight || 720;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.fillRect(0, canvas.height - 180, canvas.width, 180);
+            ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+            ctx.fillRect(0, canvas.height - 200, canvas.width, 200);
+            
+            ctx.fillStyle = "#ffb300";
+            ctx.font = "bold 30px sans-serif";
+            ctx.fillText("📍 शिक्षक साथी बिहार - GPS Stamped Photo", 35, canvas.height - 145);
             
             ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 28px sans-serif";
-            ctx.fillText("📍 शिक्षक साथी बिहार - GPS Stamped Photo", 30, canvas.height - 130);
-            
-            ctx.font = "22px sans-serif";
-            const lat = document.getElementById('lbl-lat').innerText;
-            const lng = document.getElementById('lbl-lng').innerText;
+            ctx.font = "bold 24px sans-serif";
+            const customLoc = document.getElementById('gps-custom-location').value.trim() || "प्राथमिक विद्यालय (बिहार)";
             const dt = document.getElementById('lbl-datetime').innerText;
-            const customLoc = document.getElementById('gps-custom-location').value.trim();
             
-            ctx.fillText(`Lat: ${lat} | Lng: ${lng}`, 30, canvas.height - 90);
-            if(customLoc) {
-                ctx.fillText(`स्थान: ${customLoc}`, 30, canvas.height - 50);
-            }
-            ctx.fillText(`दिनांक/समय: ${dt}`, 30, canvas.height - 15);
+            ctx.fillText(`स्थान: ${customLoc}`, 35, canvas.height - 105);
+            ctx.font = "22px sans-serif";
+            ctx.fillText(`Coordinates -> Lat: ${currentLat} | Lng: ${currentLng}`, 35, canvas.height - 65);
+            ctx.fillText(`दिनांक एवं समय: ${dt}`, 35, canvas.height - 25);
 
             if(videoStream) { videoStream.getTracks().forEach(track => track.stop()); }
             video.style.display = 'none';
