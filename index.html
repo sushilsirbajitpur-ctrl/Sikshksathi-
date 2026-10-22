@@ -108,8 +108,8 @@
                 <span style="position: absolute; bottom: -2px; right: -2px; font-size: 0.7rem; background: var(--secondary); border-radius: 50%; padding: 2px;">🇮🇳</span>
             </div>
             <div style="text-align: left;">
-                <h1 style="font-size: 1.7rem; text-shadow: 1px 1px 3px rgba(0,0,0,0.3);">शिक्षक साथी बिहार <span style="background: var(--secondary); color: #1b5e20; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; font-weight: bold; margin-left: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">v2.5 (बिहार विशेष संस्करण)</span></h1>
-                <p style="font-size: 0.95rem; opacity: 0.95; letter-spacing: 0.3px;">आधिकारिक पाठ-टीका रजिस्टर, जीपीएस कैमरा एवं डिजिटल शिक्षण पोर्टल</p>
+                <h1 style="font-size: 1.7rem; text-shadow: 1px 1px 3px rgba(0,0,0,0.3);">शिक्षक साथी बिहार <span style="background: var(--secondary); color: #1b5e20; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; font-weight: bold; margin-left: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">v2.5</span></h1>
+                <p style="font-size: 0.95rem; opacity: 0.95; letter-spacing: 0.3px;">डिजिटल शिक्षण पोर्टल</p>
             </div>
         </div>
     </header>
@@ -186,7 +186,7 @@
 
             <!-- टैब 1: पाठ-टीका रजिस्टर -->
             <div id="tab-path-tika" class="tab-content card">
-                <h2>📖 आधिकारिक पाठ-टीका रजिस्टर (Path-Tippani Register)</h2>
+                <h2>📖 पाठ-टीका रजिस्टर (Path-Tippani Register)</h2>
                 <div class="wizard-box" id="wizard-container">
                     <h3 style="color: var(--primary); margin-bottom: 10px;">⚡ त्वरित पाठ-टीका जनरेटर (Auto-Wizard)</h3>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -398,7 +398,7 @@
                     <label>घंटी:</label><select id="tika-period"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
                     <label>वर्ग:</label><select id="tika-class"><option>कक्षा 1</option><option>कक्षा 2</option><option>कक्षा 3</option><option>कक्षा 4</option><option>कक्षा 5</option></select>
                     <label>विषय:</label><select id="tika-subject"><option>हिंदी</option><option>गणित</option><option>अंग्रेजी</option><option>पर्यावरण / विज्ञान</option><option>संस्कृत / उर्दू</option></select>
-                    <label>संक्षिप्त टिप्पणी:</label><textarea id="tika-summary" rows="3" placeholder="विवरण..."></textarea>
+                    <label>प्रस्तावित पाठ की संक्षिप्त टिप्पणी:</label><textarea id="tika-summary" rows="3" placeholder="विवरण..."></textarea>
                     <label>श्यामपट्ट-कार्य:</label><textarea id="tika-bb" rows="3" placeholder="श्यामपट्ट..."></textarea>
                     <label>अभ्युक्ति:</label><input type="text" id="tika-remarks" value="सफलतापूर्वक पूर्ण">
                     <button onclick="saveRegisterTika()">पाठ-टीका सेव करें</button>
@@ -548,14 +548,54 @@
             if (pass === regPass || pass === "123456") {
                 currentUser = { name: (users[userid] ? users[userid].name : "शिक्षक (" + userid + ")"), phone: userid, isAdmin: false, isSuperAdmin: false };
                 registerUserActivity(currentUser);
-                initDashboard();
+                checkTeacherProfile(currentUser);
             } else {
                 if (msgEl) msgEl.innerText = "अमान्य पासवर्ड! (डिफ़ॉल्ट पासवर्ड 123456 है)";
             }
         });
 
+        // --- Teacher Profile Setup Check on First Login ---
+        function checkTeacherProfile(user) {
+            if (user.isAdmin) {
+                initDashboard();
+                return;
+            }
+            let profiles = JSON.parse(localStorage.getItem('teacher_profiles') || '{}');
+            let prof = profiles[user.phone];
+            if (!prof || !prof.name || !prof.school) {
+                document.getElementById('login-card').classList.add('hidden');
+                document.getElementById('profile-setup-modal').classList.remove('hidden');
+            } else {
+                currentUser.name = prof.name + " (" + prof.school + ", " + prof.block + ")";
+                initDashboard();
+            }
+        }
+
+        function saveTeacherProfile() {
+            const name = document.getElementById('prof-name').value.trim();
+            const school = document.getElementById('prof-school').value.trim();
+            const block = document.getElementById('prof-block').value.trim();
+            const district = document.getElementById('prof-district').value.trim();
+
+            if(!name || !school || !block) {
+                return alert("कृपया नाम, विद्यालय और प्रखंड का नाम अनिवार्य रूप से भरें!");
+            }
+
+            let profiles = JSON.parse(localStorage.getItem('teacher_profiles') || '{}');
+            profiles[currentUser.phone] = { name, school, block, district, phone: currentUser.phone, registeredAt: new Date().toLocaleString() };
+            localStorage.setItem('teacher_profiles', JSON.stringify(profiles));
+
+            syncSaveToCloud('profile_' + currentUser.phone, profiles[currentUser.phone]);
+
+            document.getElementById('profile-setup-modal').classList.add('hidden');
+            currentUser.name = name + " (" + school + ", " + block + ")";
+            alert("✅ प्रोफाइल सफलतापूर्वक सुरक्षित हो गई है!");
+            initDashboard();
+        }
+
         function initDashboard() {
             document.getElementById('login-card').classList.add('hidden');
+            document.getElementById('profile-setup-modal').classList.add('hidden');
             document.getElementById('dashboard-card').classList.remove('hidden');
             document.getElementById('welcome-msg').innerText = `स्वागत है, ${currentUser.name}`;
 
@@ -568,7 +608,6 @@
                 }
             }
 
-            checkTeacherProfile(currentUser);
             initDefaultDataIfNeeded();
             loadRegisterTikas();
             loadMonthlyPlans();
@@ -604,6 +643,7 @@
             document.getElementById('tab-' + tabId).classList.remove('hidden');
             event.currentTarget.classList.add('active');
             if(currentUser && currentUser.isAdmin) { loadAdminData(); }
+            if(tabId === 'shikshak-news') { loadNewsFeed(); }
         }
 
         function makeCoAdmin() {
@@ -749,7 +789,7 @@
             const summary = document.getElementById('tika-summary').value;
             const bb = document.getElementById('tika-bb').value;
             const remarks = document.getElementById('tika-remarks').value;
-            if(!date || !summary) return alert("दिनांक और टिप्पणी भरें!");
+            if(!date || !summary) return alert("दिनांक और विवरण भरें!");
             let tikas = JSON.parse(localStorage.getItem('register_tikas') || '[]');
             let data = { date, period, classInfo: cls, subject: sub, summary, bb, remarks };
             if (index === "-1") tikas.push(data); else tikas[index] = data;
@@ -763,7 +803,7 @@
             let html = tikas.length === 0 ? '<p style="color:#666;">कोई रिकॉर्ड नहीं।</p>' : '';
             tikas.forEach((item, idx) => {
                 let adminBtns = currentUser && currentUser.isAdmin ? `<div class="action-btns"><button class="btn-warning" onclick="editTika(${idx})">एडिट</button><button class="btn-danger" onclick="deleteTika(${idx})">डिलीट</button></div>` : '';
-                html += `<div class="tika-card">${adminBtns}<p><strong>दिनांक:</strong> ${item.date} | <strong>घंटी:</strong> ${item.period} | <strong>वर्ग:</strong> ${item.classInfo} | <strong>विषय:</strong> ${item.subject}</p><p style="margin-top:6px;"><strong>टिप्पणी:</strong> ${item.summary}</p><p style="margin-top:4px;"><strong>श्यामपट्ट:</strong> ${item.bb}</p><p style="margin-top:4px; color:var(--primary);"><strong>अभ्युक्ति:</strong> ${item.remarks}</p></div>`;
+                html += `<div class="tika-card">${adminBtns}<p><strong>दिनांक:</strong> ${item.date} | <strong>घंटी:</strong> ${item.period} | <strong>वर्ग:</strong> ${item.classInfo} | <strong>विषय:</strong> ${item.subject}</p><p style="margin-top:6px;"><strong>प्रस्तावित पाठ की संक्षिप्त टिप्पणी:</strong> ${item.summary}</p><p style="margin-top:4px;"><strong>श्यामपट्ट:</strong> ${item.bb}</p><p style="margin-top:4px; color:var(--primary);"><strong>अभ्युक्ति:</strong> ${item.remarks}</p></div>`;
             });
             document.getElementById('path-tika-list-container').innerHTML = html;
         }
@@ -1119,7 +1159,7 @@
 
         function logout() { if(sessionTimer) clearInterval(sessionTimer); location.reload(); }
 
-        // --- Email Based Two-Factor Authentication (2FA) & Admin Hierarchy ---
+        // --- Email Based Two-Factor Authentication (2FA) with Resend Option ---
         let pendingAdminUser = null;
         let emailOtpCode = "";
 
@@ -1132,6 +1172,9 @@
             
             alert(`🔐 [सुरक्षा 2FA] आपके पंजीकृत ईमेल (${registeredEmail}) पर 6-अंकों का लॉगिन OTP भेजा गया है: ${emailOtpCode}`);
             
+            let existingModal = document.getElementById('email-2fa-modal');
+            if (existingModal) existingModal.remove();
+
             let modalHtml = `
                 <div id="email-2fa-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:99999; display:flex; align-items:center; justify-content:center; padding:15px;">
                     <div class="card" style="max-width:400px; width:100%; background:white; margin:0; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
@@ -1142,11 +1185,20 @@
                         <input type="text" id="modal-email-otp" placeholder="OTP दर्ज करें..." maxlength="6" style="text-align:center; font-size:1.2rem; letter-spacing:3px;">
                         
                         <button onclick="verifyEmailOtpAndEnter()" style="margin-top:10px;">🔓 सत्यापित करें एवं प्रवेश करें</button>
+                        <button onclick="resendAdminEmailOtp()" class="btn-warning" style="margin-top:5px;">🔄 OTP पुनः भेजें (Resend)</button>
                         <button onclick="document.getElementById('email-2fa-modal').remove()" class="btn-secondary" style="margin-top:5px;">रद्द करें</button>
                     </div>
                 </div>
             `;
             document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function resendAdminEmailOtp() {
+            if (!pendingAdminUser) return;
+            emailOtpCode = Math.floor(100000 + Math.random() * 900000).toString();
+            let adminEmails = JSON.parse(localStorage.getItem('admin_emails_db') || '{}');
+            let registeredEmail = adminEmails[pendingAdminUser.phone] || (pendingAdminUser.isSuperAdmin ? "Jaysushil0@gmail.com" : "coadmin@gmail.com");
+            alert(`🔄 [रीसेंड OTP] आपकी ईमेल (${registeredEmail}) पर नया 6-अंकों का OTP भेजा गया है: ${emailOtpCode}`);
         }
 
         function verifyEmailOtpAndEnter() {
